@@ -10,7 +10,8 @@ import branca.colormap as cm
 GEOJSON_FILE = "data/BOUNDARY_CDDNeighborhoods.geojson"
 LOCALS_SAY_CSV = "data/locals_say.csv"
 PRICES_CSV = "data/prices.csv"
-PARKS_GEOJSON = "data/RECREATION_Playgrounds.geojson"  # GeoJSON file with parks
+PARKS_GEOJSON = "data/RECREATION_Playgrounds.geojson"
+LIBRARIES_GEOJSON = "data/LANDMARK_PublicLibraries.geojson"
 
 # Available metrics
 METRIC_COLUMNS = [
@@ -20,6 +21,7 @@ METRIC_COLUMNS = [
     "It's quiet", "There are community events", "There's wildlife", "Car is needed", "Yards are well-kept",
     "votes", "Median 2024 Home Price"
 ]
+
 
 def load_data():
     """Load and merge neighborhood, opinion, and price data."""
@@ -52,23 +54,33 @@ def load_data():
 
     return geojson_data
 
+
 def load_parks():
     """Load Cambridge park locations from GeoJSON."""
     with open(PARKS_GEOJSON, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
+def load_libraries():
+    """Load Cambridge library locations from GeoJSON."""
+    with open(LIBRARIES_GEOJSON, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def main():
-    st.title("Cambridge Neighborhoods - Home Prices & Parks")
+    st.title("Cambridge Neighborhoods - Home Prices, Parks & Libraries")
 
     # Load data
     data = load_data()
     parks = load_parks()
+    libraries = load_libraries()
 
     # User selections
     selected_metric = st.selectbox("Pick a metric to color the map", METRIC_COLUMNS, index=0)
     all_names = sorted([f["properties"]["NAME"] for f in data["features"]])
     excluded = st.multiselect("Exclude from color scale?", all_names, default=[])
-    show_parks = st.checkbox("Show Parks on Map", value=True)  # Checkbox to toggle parks
+    show_parks = st.checkbox("Show Parks on Map", value=True)
+    show_libraries = st.checkbox("Show Libraries on Map", value=True)  # New checkbox for libraries
 
     # Compute min/max for color scale
     included_vals = []
@@ -113,8 +125,23 @@ def main():
                 icon=folium.Icon(color="green", icon="tree")
             ).add_to(m)
 
+    # Conditionally add libraries
+    if show_libraries:
+        for library in libraries["features"]:
+            lib_name = library["properties"]["SITE_NAME"]
+            address = library["properties"].get("ADDRESS", "Unknown Address")
+            phone = library["properties"].get("PHONE", "No Phone Listed")
+            lat, lon = library["geometry"]["coordinates"][1], library["geometry"]["coordinates"][0]
+
+            folium.Marker(
+                location=[lat, lon],
+                popup=f"<b>{lib_name}</b><br>{address}<br>📞 {phone}",
+                icon=folium.Icon(color="blue", icon="book")
+            ).add_to(m)
+
     colormap.add_to(m)
     st_folium(m, width=800, height=600)
+
 
 if __name__ == "__main__":
     main()
